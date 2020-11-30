@@ -1,0 +1,165 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "zoneName": {
+            "type": "string",
+            "metadata": {
+                "description": "The name of the DNS zone."
+            }
+        },
+        "recordName": {
+            "type": "string",
+            "metadata": {
+                "description": "The name of the default DNS record"
+            },
+            "defaultValue": "@"
+        },
+        "serverFarmName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the App Service plan."
+            },
+            "defaultValue": "[concat('plan-', split(parameters('zoneName'), '.')[0], 'dnsmgmt-prod')]"
+        },
+        "storageAccountName": {
+            "type": "string",
+            "metadata": {
+                "description": "The name of the storage account used for the function app. Storage account names must be between 3 and 24 characters in length and use numbers and lower-case letters only."
+            },
+            "defaultValue": "[concat('st', replace(parameters('zoneName'), '.', ''), 'dnsmgmt')]",
+            "minLength": 3,
+            "maxLength": 24
+        },
+        "siteName": {
+            "type": "string",
+            "metadata": {
+                "description": "Unique name of the app to create or update."
+            },
+            "defaultValue": "[concat('func-', split(parameters('zoneName'), '.')[0], 'dnsmgmt-prod')]"
+        },
+        "roleNameGuid": {
+            "type": "string",
+            "defaultValue": "[guid(resourceGroup().id)]",
+            "metadata": {
+                "description": "A new GUID used to identify the role assignment"
+            }
+        }
+    },
+    "functions": [],
+    "variables": {
+        "serverFarmResourceId": "[resourceId('Microsoft.Web/serverfarms', parameters('serverFarmName'))]",
+        "storageAccountResourceId": "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName'))]"
+    },
+    "resources": [
+        {
+            "name": "[parameters('zoneName')]",
+            "type": "Microsoft.Network/dnsZones",
+            "apiVersion": "2018-05-01",
+            "location": "global",
+            "properties": {
+                "zoneType": "Public"
+            }
+        },
+        {
+            "name": "[parameters('serverFarmName')]",
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2018-02-01",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "Y1",
+                "tier": "Dynamic"
+            },
+            "properties": {
+                "name": "[parameters('serverFarmName')]"
+            }
+        },
+        {
+            "name": "[parameters('storageAccountName')]",
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2019-06-01",
+            "location": "[resourceGroup().location]",
+            "kind": "StorageV2",
+            "sku": {
+                "name": "Standard_LRS",
+                "tier": "Standard"
+            }
+        },
+        {
+            "name": "[parameters('siteName')]",
+            "type": "Microsoft.Web/sites",
+            "apiVersion": "2018-11-01",
+            "location": "[resourceGroup().location]",
+            "kind": "functionapp",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', parameters('serverFarmName'))]",
+                "[variables('storageAccountResourceId')]"
+            ],
+            "properties": {
+                "serverFarmId": "[variables('serverFarmResourceId')]",
+                "siteConfig": {
+                    "appSettings": [
+                        {
+                            "name": "FUNCTIONS_EXTENSION_VERSION",
+                            "value": "~3"
+                        },
+                        {
+                            "name": "FUNCTIONS_WORKER_RUNTIME",
+                            "value": "dotnet"
+                        },
+                        {
+                            "name": "AzureWebJobsStorage",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(variables('storageAccountResourceId'),'2015-05-01-preview').key1)]"
+                        },
+                        {
+                            "name": "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING",
+                            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', parameters('storageAccountName'), ';AccountKey=', listKeys(variables('storageAccountResourceId'),'2015-05-01-preview').key1)]"
+                        },
+                        {
+                            "name": "WEBSITE_CONTENTSHARE",
+                            "value": "[toLower('functionName')]"
+                        },
+                        {
+                            "name": "subscriptionId",
+                            "value": "[subscription().subscriptionId]"
+                        },
+                        {
+                            "name": "resourceGroup",
+                            "value": "[resourceGroup().name]"
+                        },
+                        {
+                            "name": "defaultZone",
+                            "value": "[parameters('zoneName')]"
+                        },
+                        {
+                            "name": "defaultSubdomain",
+                            "value": "[parameters('recordName')]"
+                        }
+                    ]
+                }
+            },
+            "identity": {
+                "type": "SystemAssigned"
+            }
+        },
+        {
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2020-04-01-preview",
+            "name": "[parameters('roleNameGuid')]",
+            "scope": "[concat('Microsoft.Network/dnsZones', '/', parameters('zoneName'))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('siteName'))]"
+            ],
+            "properties": {
+                "roleDefinitionId": "[resourceId('Microsoft.Authorization/roleDefinitions', 'befefa01-2a29-4197-83a8-272ff33ce314')]",
+                "principalId": "[reference(resourceId('Microsoft.Web/sites', parameters('siteName')), '2018-11-01', 'Full').identity.principalId]"
+            }
+        }
+    ],
+    "outputs": {
+        "nameServers": {
+            "type": "array",
+            "value": "[reference(parameters('zoneName')).nameServers]"
+        }
+    }
+}

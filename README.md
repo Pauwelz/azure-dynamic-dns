@@ -76,7 +76,7 @@ To get a your own copy up and running follow these simple steps.
    ns4-05.azure-dns.info.
    ```
 
-   You can now input these as the authorative nameservers in your registrars panel
+   You can now input these as the authoritative nameservers in your registrars panel
 
 ## Usage
 

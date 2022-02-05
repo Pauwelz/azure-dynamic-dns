@@ -54,7 +54,7 @@ To get a your own copy up and running follow these simple steps.
 
    ```powershell
    dotnet publish .\src\dnsmanagement\dnsmanagement.csproj -c Release
-   Compress-Archive -Path .\src\dnsmanagement\bin\Release\netcoreapp3.1\publish\* `
+   Compress-Archive -Path .\src\dnsmanagement\bin\Release\net6.0\publish\* `
       -DestinationPath dnsmanagement.zip -Force
    Publish-AzWebApp -ResourceGroupName $rgName -Name (Get-AzResourceGroupDeployment `
       -ResourceGroupName $rgName -Name infra).Parameters.siteName.Value `

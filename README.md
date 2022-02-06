@@ -17,7 +17,7 @@ Current functionality is very basic, I'll be adding more in the near future. Fee
 
 ### Built With
 
-* [.NET Core 3.1](https://dotnet.microsoft.com/)
+* [.NET 6](https://dotnet.microsoft.com/)
 * [Azure Functions](https://azure.microsoft.com/en-us/services/functions/)
 * :coffee:
 
